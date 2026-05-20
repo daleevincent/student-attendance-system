@@ -1,0 +1,160 @@
+{% extends "layout.html" %}
+{% block title %}Attendance Logs — COM221{% endblock %}
+
+{% block extra_css %}
+<style>
+  .filter-section {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 14px 18px;
+    margin-bottom: 18px; display: flex; gap: 10px;
+    align-items: flex-end; flex-wrap: wrap;
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 150px; }
+  .filter-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Attendance Logs</h1>
+    <p class="page-subtitle">Section COM221 — all attendance records</p>
+  </div>
+  <a href="{{ url_for('attendance_records') }}?export=csv{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}{% if request.args.get('search') %}&search={{ request.args.get('search') }}{% endif %}"
+     class="btn btn-secondary">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7,10 12,15 17,10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Export CSV
+  </a>
+</div>
+
+<!-- Filters — simplified (no course filter since it's one section) -->
+<form method="GET" class="filter-section">
+  <div class="filter-group">
+    <label class="filter-label">Search Student</label>
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input class="form-input" type="search" name="search"
+        placeholder="Name or Student ID..." value="{{ filters.search or '' }}">
+    </div>
+  </div>
+  <div class="filter-group" style="max-width:180px;">
+    <label class="filter-label">Date</label>
+    <input class="form-input" type="date" name="date" value="{{ filters.date or '' }}">
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;padding-bottom:1px;">
+    <button type="submit" class="btn btn-primary">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+        <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"/>
+      </svg>
+      Filter
+    </button>
+    <a href="{{ url_for('attendance_records') }}" class="btn btn-secondary">Clear</a>
+  </div>
+</form>
+
+<div class="card">
+  <div class="card-header">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <h3 class="card-title">COM221 Attendance</h3>
+      <span class="badge badge-accent">{{ total_count }} records</span>
+    </div>
+    {% if filters.date or filters.search %}
+      <span class="badge badge-warning">Filtered</span>
+    {% endif %}
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Student</th>
+          <th>Student ID</th>
+          <th>Date</th>
+          <th>Time In</th>
+          <th>Status</th>
+          <th>Confidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if records %}
+          {% for r in records %}
+          <tr>
+            <td class="text-muted text-sm">{{ r.id }}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="avatar" style="width:28px;height:28px;font-size:0.66rem;">{{ r.full_name[:2] }}</div>
+                <span class="td-name">{{ r.full_name }}</span>
+              </div>
+            </td>
+            <td><code style="font-size:0.76rem;color:var(--nu-gold);">{{ r.student_number }}</code></td>
+            <td class="text-sm">{{ r.attendance_date }}</td>
+            <td class="text-sm" style="font-variant-numeric:tabular-nums;">{{ r.time_in }}</td>
+            <td>
+              {% if r.status == 'Present' %}
+                <span class="badge badge-success"><span class="badge-dot"></span>Present</span>
+              {% elif r.status == 'Late' %}
+                <span class="badge badge-warning"><span class="badge-dot"></span>Late</span>
+              {% else %}
+                <span class="badge badge-accent">{{ r.status }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if r.confidence_score %}
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <div style="height:4px;width:44px;background:var(--bg-surface-3);border-radius:999px;overflow:hidden;">
+                    <div style="height:100%;width:{{ (r.confidence_score*100)|int }}%;background:var(--nu-gold);border-radius:999px;"></div>
+                  </div>
+                  <span class="text-sm text-muted">{{ (r.confidence_score*100)|int }}%</span>
+                </div>
+              {% else %}
+                <span class="text-muted text-sm">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14,2 14,8 20,8"/>
+                </svg>
+                <h3>No records found</h3>
+                <p>{% if filters.date or filters.search %}Try adjusting your filters{% else %}Attendance logs will appear here after scanning{% endif %}</p>
+              </div>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if total_pages > 1 %}
+  <div class="pagination">
+    <span class="pagination-info">
+      Showing {{ (page-1)*per_page+1 }}–{{ [page*per_page, total_count]|min }} of {{ total_count }}
+    </span>
+    <a href="?page={{ page-1 }}&date={{ filters.date or '' }}&search={{ filters.search or '' }}"
+       class="page-btn {% if page<=1 %}disabled{% endif %}" {% if page<=1 %}onclick="return false;"{% endif %}>‹</a>
+    {% for p in range(1, total_pages+1) %}
+      {% if p==page %}
+        <span class="page-btn active">{{ p }}</span>
+      {% elif p<=2 or p>=total_pages-1 or (p>=page-1 and p<=page+1) %}
+        <a href="?page={{ p }}&date={{ filters.date or '' }}&search={{ filters.search or '' }}" class="page-btn">{{ p }}</a>
+      {% elif p==page-2 or p==page+2 %}
+        <span class="text-muted" style="padding:0 4px;">…</span>
+      {% endif %}
+    {% endfor %}
+    <a href="?page={{ page+1 }}&date={{ filters.date or '' }}&search={{ filters.search or '' }}"
+       class="page-btn {% if page>=total_pages %}disabled{% endif %}" {% if page>=total_pages %}onclick="return false;"{% endif %}>›</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

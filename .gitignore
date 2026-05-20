@@ -1,0 +1,22 @@
+# Python virtual environments
+dale/
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# TensorFlow / ML checkpoints
+*.ckpt
+*.pb
+*.h5
+*.index
+*.data-00000-of-00001
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
