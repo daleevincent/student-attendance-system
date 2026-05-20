@@ -45,10 +45,14 @@ def allowed_file(filename: str) -> bool:
 
 
 def login_required(f):
-    """Decorator: redirect to login if not authenticated."""
+    """Decorator: redirect to login if not authenticated.
+    For API/AJAX routes (URL starts with /api/), returns JSON 401 instead of redirect.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'admin_id' not in session:
+            if request.path.startswith('/api/'):
+                return jsonify({'success': False, 'message': 'Session expired. Please refresh and log in again.'}), 401
             flash('Please log in to continue.', 'error')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
@@ -266,76 +270,84 @@ def api_recognize():
     """
     Receives a webcam frame (multipart/form-data, field: 'frame'),
     runs face recognition, marks attendance, and returns JSON.
+    Always returns JSON — never HTML — so the frontend catch() never fires.
     """
-    if 'frame' not in request.files:
-        return jsonify({'success': False, 'message': 'No frame provided'}), 400
+    db = None
+    try:
+        if 'frame' not in request.files:
+            return jsonify({'success': False, 'message': 'No frame provided'}), 400
 
-    frame_file = request.files['frame']
-    image_bytes = frame_file.read()
+        frame_file  = request.files['frame']
+        image_bytes = frame_file.read()
 
-    if not image_bytes:
-        return jsonify({'success': False, 'message': 'Empty frame'}), 400
+        if not image_bytes:
+            return jsonify({'success': False, 'message': 'Empty frame'}), 400
 
-    db     = get_db()
-    result = predict_face(image_bytes, db)
+        db     = get_db()
+        result = predict_face(image_bytes, db)
 
-    if not result['recognized']:
+        if not result['recognized']:
+            db.close()
+            return jsonify({
+                'success':    False,
+                'message':    result['message'],
+                'confidence': result['confidence']
+            })
+
+        # Fetch full student info
+        student = db.execute(
+            "SELECT * FROM students WHERE id = ?", (result['student_id'],)
+        ).fetchone()
+
+        if not student:
+            db.close()
+            return jsonify({'success': False, 'message': 'Student record not found'})
+
+        today    = date.today().isoformat()
+        time_now = datetime.now().strftime('%H:%M:%S')
+
+        # Check for duplicate attendance on the same day
+        existing = db.execute("""
+            SELECT id FROM attendance
+            WHERE student_id = ? AND attendance_date = ?
+        """, (student['id'], today)).fetchone()
+
+        already_marked = bool(existing)
+        if not existing:
+            late_cutoff = '08:30:00'
+            status = 'Late' if time_now > late_cutoff else 'Present'
+            db.execute("""
+                INSERT INTO attendance (student_id, attendance_date, time_in, status, confidence_score)
+                VALUES (?, ?, ?, ?, ?)
+            """, (student['id'], today, time_now, status, result['confidence']))
+            db.commit()
+
         db.close()
         return jsonify({
-            'success':    False,
-            'message':    result['message'],
-            'confidence': result['confidence']
+            'success':        True,
+            'already_marked': already_marked,
+            'confidence':     result['confidence'],
+            'time_in':        time_now,
+            'student': {
+                'id':             student['id'],
+                'student_number': student['student_number'],
+                'full_name':      student['full_name'],
+                'course':         student['course'],
+                'year_level':     student['year_level'],
+                'section':        student['section'],
+                'image_path':     student['image_path'],
+            }
         })
 
-    # Fetch full student info
-    student = db.execute(
-        "SELECT * FROM students WHERE id = ?", (result['student_id'],)
-    ).fetchone()
-
-    if not student:
-        db.close()
-        return jsonify({'success': False, 'message': 'Student record not found'})
-
-    today       = date.today().isoformat()
-    time_now    = datetime.now().strftime('%H:%M:%S')
-
-    # Check for duplicate attendance on the same day
-    existing = db.execute("""
-        SELECT id FROM attendance
-        WHERE student_id = ? AND attendance_date = ?
-    """, (student['id'], today)).fetchone()
-
-    already_marked = False
-    if existing:
-        already_marked = True
-    else:
-        # Determine Late status (after 08:30 AM)
-        late_cutoff = '08:30:00'
-        status = 'Late' if time_now > late_cutoff else 'Present'
-
-        db.execute("""
-            INSERT INTO attendance (student_id, attendance_date, time_in, status, confidence_score)
-            VALUES (?, ?, ?, ?, ?)
-        """, (student['id'], today, time_now, status, result['confidence']))
-        db.commit()
-
-    db.close()
-
-    return jsonify({
-        'success':        True,
-        'already_marked': already_marked,
-        'confidence':     result['confidence'],
-        'time_in':        time_now,
-        'student': {
-            'id':             student['id'],
-            'student_number': student['student_number'],
-            'full_name':      student['full_name'],
-            'course':         student['course'],
-            'year_level':     student['year_level'],
-            'section':        student['section'],
-            'image_path':     student['image_path'],
-        }
-    })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        if db:
+            try:
+                db.close()
+            except Exception:
+                pass
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
 
 
 # ── Attendance records ────────────────────────────────────────────────────────

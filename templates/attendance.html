@@ -310,9 +310,13 @@
       try {
         const res  = await fetch('/api/recognize', { method:'POST', body:formData });
         const data = await res.json();
+        if (res.status === 401) {
+          showToast('Session expired — please refresh the page.', 'error');
+          return;
+        }
         handleResult(data);
       } catch(err) {
-        showToast('Recognition failed. Check server.','error');
+        showToast('Recognition failed: ' + (err.message || 'Check server console.'), 'error');
       } finally {
         document.getElementById('processingOverlay').classList.remove('show');
         document.getElementById('captureBtn').disabled = false;
