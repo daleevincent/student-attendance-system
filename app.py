@@ -23,7 +23,10 @@ from werkzeug.utils import secure_filename
 
 # Local helpers
 from utils.database import get_db, init_db
-from services.face_recognition_service import predict_face, enroll_student_face
+from services.face_recognition_service import (
+    predict_face, enroll_student_face,
+    capture_face_sample, enroll_from_samples
+)
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -456,6 +459,110 @@ def export_csv(search='', f_date=''):
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment; filename={filename}'}
     )
+
+
+# ── Burst enrollment API ──────────────────────────────────────────────────────
+
+@app.route('/api/enroll/capture', methods=['POST'])
+@login_required
+def api_enroll_capture():
+    """
+    Receive a single webcam frame during burst enrollment.
+    Detects + crops the face and saves it as a sample.
+    """
+    try:
+        student_id = request.form.get('student_id', type=int)
+        if not student_id:
+            return jsonify({'success': False, 'message': 'student_id required'}), 400
+
+        if 'frame' not in request.files:
+            return jsonify({'success': False, 'message': 'No frame provided'}), 400
+
+        image_bytes = request.files['frame'].read()
+        if not image_bytes:
+            return jsonify({'success': False, 'message': 'Empty frame'}), 400
+
+        # Save sample to uploads/samples/<student_id>/
+        sample_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'samples', str(student_id))
+        result     = capture_face_sample(image_bytes, student_id, sample_dir)
+
+        if not result['success']:
+            return jsonify(result), 400
+
+        # Record in DB
+        db = get_db()
+        db.execute(
+            "INSERT INTO face_samples (student_id, image_path) VALUES (?, ?)",
+            (student_id, result['filename'])
+        )
+        db.commit()
+        count = db.execute(
+            "SELECT COUNT(*) as n FROM face_samples WHERE student_id = ?",
+            (student_id,)
+        ).fetchone()['n']
+        db.close()
+
+        return jsonify({
+            'success':       True,
+            'face_detected': result['face_detected'],
+            'filename':      result['filename'],
+            'total_samples': count,
+            'message':       result['message']
+        })
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+
+@app.route('/api/enroll/finish', methods=['POST'])
+@login_required
+def api_enroll_finish():
+    """
+    Called after burst capture is complete.
+    Averages all captured samples into a single robust embedding.
+    """
+    try:
+        data       = request.get_json() or {}
+        student_id = data.get('student_id')
+        if not student_id:
+            return jsonify({'success': False, 'message': 'student_id required'}), 400
+
+        db     = get_db()
+        result = enroll_from_samples(int(student_id), db)
+        db.close()
+        return jsonify(result)
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
+
+
+@app.route('/api/enroll/clear', methods=['POST'])
+@login_required
+def api_enroll_clear():
+    """Delete all captured samples for a student (e.g. to re-do enrollment)."""
+    try:
+        data       = request.get_json() or {}
+        student_id = data.get('student_id')
+        if not student_id:
+            return jsonify({'success': False, 'message': 'student_id required'}), 400
+
+        db = get_db()
+        db.execute("DELETE FROM face_samples WHERE student_id = ?", (student_id,))
+        db.commit()
+        db.close()
+
+        # Also delete saved sample images
+        import shutil
+        sample_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'samples', str(student_id))
+        if os.path.exists(sample_dir):
+            shutil.rmtree(sample_dir)
+
+        return jsonify({'success': True, 'message': 'Samples cleared'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Server error: {str(e)}'}), 500
 
 
 # ── Error handlers ────────────────────────────────────────────────────────────

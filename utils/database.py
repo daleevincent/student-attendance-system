@@ -53,6 +53,17 @@ def init_db():
         pass  # column already exists
 
     cur.execute("""
+        CREATE TABLE IF NOT EXISTS face_samples (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id  INTEGER NOT NULL,
+            image_path  TEXT    NOT NULL,
+            captured_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+        )
+    """)
+
+    # Add face_samples count migration info
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS attendance (
             id               INTEGER PRIMARY KEY AUTOINCREMENT,
             student_id       INTEGER NOT NULL,
@@ -75,15 +86,15 @@ def init_db():
     # Sample students
     sample_count = cur.execute("SELECT COUNT(*) FROM students").fetchone()[0]
     if sample_count == 0:
-        sample_students = [
-            ('2024-CS-001', 'Maria Santos',     'BSCS', 3, 'A'),
-            ('2024-CS-002', 'Juan Dela Cruz',   'BSCS', 3, 'A'),
-            ('2024-IT-001', 'Ana Reyes',        'BSIT', 2, 'B'),
-            ('2024-IT-002', 'Carlo Mendoza',    'BSIT', 2, 'B'),
-            ('2024-CE-001', 'Sofia Garcia',     'BSCE', 1, 'C'),
-            ('2024-CE-002', 'Miguel Torres',    'BSCE', 1, 'C'),
-            ('2024-BA-001', 'Isabella Flores',  'BSBA', 4, 'A'),
-            ('2024-BA-002', 'Rafael Villanueva','BSBA', 4, 'A'),
+        sample_students = [  # COM221 sample students
+            ('2024-0001', 'Maria Santos',     'BSIT', 2, 'COM221'),
+            ('2024-0002', 'Juan Dela Cruz',   'BSIT', 2, 'COM221'),
+            ('2024-0003', 'Ana Reyes',        'BSIT', 2, 'COM221'),
+            ('2024-0004', 'Carlo Mendoza',    'BSIT', 2, 'COM221'),
+            ('2024-0005', 'Sofia Garcia',     'BSIT', 2, 'COM221'),
+            ('2024-0006', 'Miguel Torres',    'BSIT', 2, 'COM221'),
+            ('2024-0007', 'Isabella Flores',  'BSIT', 2, 'COM221'),
+            ('2024-0008', 'Rafael Villanueva','BSIT', 2, 'COM221'),
         ]
         cur.executemany(
             "INSERT INTO students (student_number, full_name, course, year_level, section) VALUES (?, ?, ?, ?, ?)",

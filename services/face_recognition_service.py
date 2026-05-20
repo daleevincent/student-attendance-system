@@ -405,3 +405,151 @@ def _mock_predict(db_conn) -> dict:
     c = round(random.uniform(0.10, 0.45), 4)
     return {'recognized': False, 'student_id': None, 'confidence': c,
             'faces_found': 0, 'message': 'Not recognized (mock — FaceNet missing)'}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  MULTI-SAMPLE ENROLLMENT (burst capture)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def enroll_from_samples(student_id: int, db_conn) -> dict:
+    """
+    Build a robust face embedding by averaging all captured samples for a student.
+
+    How it works:
+      - Fetches all face_samples rows for the student
+      - Detects + embeds each image individually
+      - Averages all valid embeddings into one final embedding
+      - Stores the averaged embedding in students.face_embedding
+
+    Averaging multiple embeddings dramatically improves recognition accuracy
+    because it captures the person's face under different angles/lighting.
+
+    Returns:
+        { 'success': bool, 'samples_used': int, 'message': str }
+    """
+    _load_detector()
+    if not _load_facenet():
+        return {'success': False, 'samples_used': 0,
+                'message': 'FaceNet model not available'}
+
+    samples = db_conn.execute(
+        "SELECT image_path FROM face_samples WHERE student_id = ?",
+        (student_id,)
+    ).fetchall()
+
+    if not samples:
+        return {'success': False, 'samples_used': 0,
+                'message': 'No captured samples found for this student'}
+
+    embeddings = []
+    failed     = 0
+
+    for row in samples:
+        img_path = os.path.join(BASE_DIR, 'static', 'uploads', 'samples',
+                                str(student_id), row['image_path'])
+        if not os.path.exists(img_path):
+            failed += 1
+            continue
+
+        frame = cv2.imread(img_path)
+        if frame is None:
+            failed += 1
+            continue
+
+        # Try to detect + crop face, fall back to full image
+        with open(img_path, 'rb') as f:
+            img_bytes = f.read()
+        boxes = detect_faces(img_bytes)
+
+        if boxes:
+            boxes.sort(key=lambda b: (b[2]-b[0])*(b[3]-b[1]), reverse=True)
+            x1, y1, x2, y2 = boxes[0]
+            h, w = frame.shape[:2]
+            pad  = 20
+            crop = frame[max(0,y1-pad):min(h,y2+pad),
+                         max(0,x1-pad):min(w,x2+pad)]
+        else:
+            crop = frame
+
+        emb = _embed_face(crop)
+        if emb is not None:
+            embeddings.append(emb)
+        else:
+            failed += 1
+
+    if not embeddings:
+        return {'success': False, 'samples_used': 0,
+                'message': f'Could not extract embeddings from any sample ({failed} failed)'}
+
+    # Average all embeddings and L2-normalize the result
+    avg_emb   = np.mean(embeddings, axis=0)
+    norm      = np.linalg.norm(avg_emb)
+    final_emb = (avg_emb / norm).astype(np.float32) if norm > 0 else avg_emb.astype(np.float32)
+
+    db_conn.execute(
+        "UPDATE students SET face_embedding = ? WHERE id = ?",
+        (final_emb.tobytes(), student_id)
+    )
+    db_conn.commit()
+
+    used = len(embeddings)
+    print(f"[FaceService] Student {student_id} enrolled from {used} samples "
+          f"(averaged embedding, {failed} failed).")
+    return {
+        'success':      True,
+        'samples_used': used,
+        'message':      f'Face enrolled from {used} photo{"s" if used != 1 else ""}'
+    }
+
+
+def capture_face_sample(image_bytes: bytes, student_id: int, sample_dir: str) -> dict:
+    """
+    Save a single webcam frame as a face sample for burst enrollment.
+
+    Detects the face, crops it, saves the crop to disk.
+
+    Args:
+        image_bytes:  raw JPEG/PNG bytes from the webcam capture
+        student_id:   student being enrolled
+        sample_dir:   directory to save samples in
+
+    Returns:
+        { 'success': bool, 'filename': str, 'face_detected': bool, 'message': str }
+    """
+    os.makedirs(sample_dir, exist_ok=True)
+
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if frame is None:
+        return {'success': False, 'filename': None,
+                'face_detected': False, 'message': 'Could not decode image'}
+
+    _load_detector()
+    boxes = detect_faces(image_bytes)
+
+    if boxes:
+        # Crop the largest detected face with padding
+        boxes.sort(key=lambda b: (b[2]-b[0])*(b[3]-b[1]), reverse=True)
+        x1, y1, x2, y2 = boxes[0]
+        h, w = frame.shape[:2]
+        pad  = 25
+        crop = frame[max(0,y1-pad):min(h,y2+pad),
+                     max(0,x1-pad):min(w,x2+pad)]
+        face_detected = True
+    else:
+        # Save full frame — enrollment will still work
+        crop = frame
+        face_detected = False
+
+    # Save with a timestamp-based filename
+    import time
+    filename = f"sample_{int(time.time()*1000)}.jpg"
+    save_path = os.path.join(sample_dir, filename)
+    cv2.imwrite(save_path, crop, [cv2.IMWRITE_JPEG_QUALITY, 92])
+
+    return {
+        'success':       True,
+        'filename':      filename,
+        'face_detected': face_detected,
+        'message':       'Face captured' if face_detected else 'Frame saved (no face box found)'
+    }
