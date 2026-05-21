@@ -1,5 +1,5 @@
 /* ============================================
-   AttendX — National University Philippines Theme
+   Attendance System — National University Lipa Theme
    Colors: NU Gold (#F5A800), NU Navy (#002366)
    ============================================ */
 
@@ -99,20 +99,20 @@ body {
 }
 
 .sidebar-brand {
-  padding: 22px 20px 18px;
+  padding: 18px 16px 16px;
   border-bottom: 1px solid rgba(245,168,0,0.2);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .brand-icon {
   width: 42px; height: 42px;
-  background: var(--nu-gold);
+  background: transparent;
   border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  color: var(--nu-navy-dark);
+  overflow: hidden;
 }
 
 .brand-name {

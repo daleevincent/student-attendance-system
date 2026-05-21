@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Login — AttendX NU</title>
+  <title>Login — NU Lipa Attendance System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -259,19 +259,16 @@
   <div class="login-wrapper">
     <!-- Left banner -->
     <div class="login-banner">
-      <div class="banner-logo">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
+      <div class="banner-logo" style="background:transparent;box-shadow:none;">
+        <img src="{{ url_for('static', filename='uploads/NULipa.png') }}"
+             alt="NU Logo"
+             style="width:110px;height:110px;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(0,0,0,0.4));">
       </div>
       <div class="banner-title">Attendance System</div>
       <div class="banner-school">National University - Lipa</div>
       <div class="banner-divider"></div>
       <div class="banner-desc">
-        Face Recognition Student Attendance System — automated, accurate, and effortless.
+        Face Recognition Student Attendance System for BSCS 4th Year — COM221.
       </div>
     </div>
 

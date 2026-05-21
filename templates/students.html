@@ -31,7 +31,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Students</h1>
-    <p class="page-subtitle">Section COM221 — manage students and face enrollments</p>
+    <p class="page-subtitle">Section COM221 — BSCS 4th Year | manage students and face enrollments</p>
   </div>
   <div class="page-actions">
     <div class="section-tag">
@@ -92,12 +92,12 @@
             <td><code style="font-size:0.8rem;color:var(--nu-gold);">{{ s.student_number }}</code></td>
             <td class="text-muted text-sm">{{ s.created_at[:10] if s.created_at else '—' }}</td>
             <td>
-              {% if s.image_path and s.face_embedding %}
+              {% if s.face_embedding %}
                 <span class="badge badge-success"><span class="badge-dot"></span>Face Enrolled</span>
               {% elif s.image_path %}
-                <span class="badge badge-warning">Photo Only</span>
+                <span class="badge badge-accent">Profile Photo</span>
               {% else %}
-                <span class="badge badge-danger">No Photo</span>
+                <span class="badge badge-danger">Not Enrolled</span>
               {% endif %}
             </td>
             <td>
@@ -157,7 +157,7 @@
     </div>
     <form method="POST" action="{{ url_for('add_student') }}" enctype="multipart/form-data">
       <!-- Hidden fixed fields -->
-      <input type="hidden" name="course"     value="BSIT">
+      <input type="hidden" name="course"     value="BSCS">
       <input type="hidden" name="year_level" value="2">
       <input type="hidden" name="section"    value="COM221">
 
@@ -176,7 +176,7 @@
           <label class="form-label">Section</label>
           <div style="display:flex;gap:8px;">
             <input class="form-input" type="text" value="COM221" disabled style="flex:1;opacity:0.7;">
-            <input class="form-input" type="text" value="BSIT — 2nd Year" disabled style="flex:1;opacity:0.7;">
+            <input class="form-input" type="text" value="BSCS — 4th Year" disabled style="flex:1;opacity:0.7;">
           </div>
           <p style="font-size:0.7rem;color:var(--text-muted);margin-top:4px;">Fixed for this system</p>
         </div>
@@ -218,7 +218,7 @@
       <button class="modal-close" onclick="closeModal('editModal')">×</button>
     </div>
     <form method="POST" id="editStudentForm" enctype="multipart/form-data">
-      <input type="hidden" name="course"     value="BSIT">
+      <input type="hidden" name="course"     value="BSCS">
       <input type="hidden" name="year_level" value="2">
       <input type="hidden" name="section"    value="COM221">
 
@@ -297,8 +297,8 @@
         <ol style="padding-left:18px;color:var(--text-secondary);font-size:0.9rem;display:flex;flex-direction:column;gap:4px;">
           <li>Click <strong>Start Camera</strong> and allow camera access</li>
           <li>Look directly at the camera</li>
-          <li>Click <strong>Capture</strong> (or hold for <strong>Auto-Burst</strong>) — take 10–20 photos</li>
-          <li>Slightly move your head between captures for better accuracy</li>
+          <li>Press and hold <strong>Auto-Burst</strong> — take 15–20 photos</li>
+          <li>Slightly move your head left, right, and tilt between bursts for better accuracy</li>
           <li>Click <strong>Finish Enrollment</strong> — the system will build your face model</li>
         </ol>
       </div>
@@ -349,17 +349,11 @@
 
       {# Controls #}
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-primary" id="captureBtn" onclick="captureOnce()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-            <circle cx="12" cy="12" r="3"/><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-          </svg>
-          Capture
-        </button>
-        <button class="btn btn-secondary" id="burstBtn" onmousedown="startBurst()" onmouseup="stopBurst()" ontouchstart="startBurst()" ontouchend="stopBurst()">
+        <button class="btn btn-primary" id="burstBtn" onmousedown="startBurst()" onmouseup="stopBurst()" ontouchstart="startBurst()" ontouchend="stopBurst()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
             <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/>
           </svg>
-          Hold for Auto-Burst
+          Hold to Capture (Auto-Burst)
         </button>
         <button class="btn btn-secondary" onclick="clearSamples()" style="margin-left:auto;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
@@ -544,7 +538,7 @@
 
   function startBurst() {
     if (burstInterval) return;
-    document.getElementById('burstBtn').style.cssText += 'background:var(--nu-gold);color:var(--nu-navy-dark);';
+    document.getElementById('burstBtn').style.cssText += 'background:var(--nu-gold-light);box-shadow:0 0 12px var(--nu-gold-glow);';
     captureOnce();
     burstInterval = setInterval(captureOnce, BURST_INTERVAL_MS);
   }
@@ -552,7 +546,7 @@
   function stopBurst() {
     clearInterval(burstInterval); burstInterval = null;
     const btn = document.getElementById('burstBtn');
-    if (btn) { btn.style.background = ''; btn.style.color = ''; }
+    if (btn) { btn.style.cssText = ''; }
   }
 
   async function clearSamples() {

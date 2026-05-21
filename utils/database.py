@@ -87,14 +87,14 @@ def init_db():
     sample_count = cur.execute("SELECT COUNT(*) FROM students").fetchone()[0]
     if sample_count == 0:
         sample_students = [  # COM221 sample students
-            ('2024-0001', 'Maria Santos',     'BSIT', 2, 'COM221'),
-            ('2024-0002', 'Juan Dela Cruz',   'BSIT', 2, 'COM221'),
-            ('2024-0003', 'Ana Reyes',        'BSIT', 2, 'COM221'),
-            ('2024-0004', 'Carlo Mendoza',    'BSIT', 2, 'COM221'),
-            ('2024-0005', 'Sofia Garcia',     'BSIT', 2, 'COM221'),
-            ('2024-0006', 'Miguel Torres',    'BSIT', 2, 'COM221'),
-            ('2024-0007', 'Isabella Flores',  'BSIT', 2, 'COM221'),
-            ('2024-0008', 'Rafael Villanueva','BSIT', 2, 'COM221'),
+            ('2024-0001', 'Maria Santos',     'BSCS', 4, 'COM221'),
+            ('2024-0002', 'Juan Dela Cruz',   'BSCS', 4, 'COM221'),
+            ('2024-0003', 'Ana Reyes',        'BSCS', 4, 'COM221'),
+            ('2024-0004', 'Carlo Mendoza',    'BSCS', 4, 'COM221'),
+            ('2024-0005', 'Sofia Garcia',     'BSCS', 4, 'COM221'),
+            ('2024-0006', 'Miguel Torres',    'BSCS', 4, 'COM221'),
+            ('2024-0007', 'Isabella Flores',  'BSCS', 4, 'COM221'),
+            ('2024-0008', 'Rafael Villanueva','BSCS', 4, 'COM221'),
         ]
         cur.executemany(
             "INSERT INTO students (student_number, full_name, course, year_level, section) VALUES (?, ?, ?, ?, ?)",

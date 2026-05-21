@@ -18,7 +18,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Attendance Logs</h1>
-    <p class="page-subtitle">Section COM221 — all attendance records</p>
+    <p class="page-subtitle">Section COM221 — BSCS 4th Year | all attendance records</p>
   </div>
   <a href="{{ url_for('attendance_records') }}?export=csv{% if request.args.get('date') %}&date={{ request.args.get('date') }}{% endif %}{% if request.args.get('search') %}&search={{ request.args.get('search') }}{% endif %}"
      class="btn btn-secondary">

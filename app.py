@@ -147,8 +147,8 @@ def students():
 
 # Section is fixed for this deployment
 SECTION_NAME  = 'COM221'
-COURSE_NAME   = 'BSIT'
-YEAR_LEVEL    = 2
+COURSE_NAME   = 'BSCS'
+YEAR_LEVEL    = 4
 
 @app.route('/students/add', methods=['POST'])
 @login_required
@@ -166,7 +166,8 @@ def add_student():
         flash('Student number and full name are required.', 'error')
         return redirect(url_for('students'))
 
-    # Handle optional face image upload
+    # Handle optional profile photo — for display only, NOT used for face recognition
+    # Face recognition requires burst webcam enrollment via the Enroll button
     image_path = None
     file = request.files.get('face_image')
     if file and file.filename and allowed_file(file.filename):
@@ -182,16 +183,10 @@ def add_student():
             VALUES (?, ?, ?, ?, ?, ?)
         """, (student_number, full_name, course, int(year_level), section, image_path))
         db.commit()
-        # Auto-enroll face embedding if a photo was uploaded
         if image_path:
-            new_id = db.execute("SELECT id FROM students WHERE student_number=?", (student_number,)).fetchone()['id']
-            enrolled = enroll_student_face(image_path, db, new_id)
-            if enrolled:
-                flash(f'Student "{full_name}" added and face enrolled!', 'success')
-            else:
-                flash(f'Student "{full_name}" added (face enrollment failed — model loading).', 'warning')
+            flash(f'Student "{full_name}" added with profile photo. Use the Enroll button to register their face for recognition.', 'success')
         else:
-            flash(f'Student "{full_name}" added. Upload a face photo to enable recognition.', 'success')
+            flash(f'Student "{full_name}" added. Use the Enroll button to register their face for recognition.', 'success')
     except Exception as e:
         db.rollback()
         if 'UNIQUE' in str(e):
@@ -292,54 +287,68 @@ def api_recognize():
         if not result['recognized']:
             db.close()
             return jsonify({
-                'success':    False,
-                'message':    result['message'],
-                'confidence': result['confidence']
+                'success':     False,
+                'message':     result['message'],
+                'faces_found': result['faces_found']
             })
 
-        # Fetch full student info
-        student = db.execute(
-            "SELECT * FROM students WHERE id = ?", (result['student_id'],)
-        ).fetchone()
-
-        if not student:
-            db.close()
-            return jsonify({'success': False, 'message': 'Student record not found'})
-
+        # Process EVERY matched face and mark attendance for each
         today    = date.today().isoformat()
         time_now = datetime.now().strftime('%H:%M:%S')
+        late_cutoff = '08:30:00'
 
-        # Check for duplicate attendance on the same day
-        existing = db.execute("""
-            SELECT id FROM attendance
-            WHERE student_id = ? AND attendance_date = ?
-        """, (student['id'], today)).fetchone()
+        recognized_students = []
 
-        already_marked = bool(existing)
-        if not existing:
-            late_cutoff = '08:30:00'
-            status = 'Late' if time_now > late_cutoff else 'Present'
-            db.execute("""
-                INSERT INTO attendance (student_id, attendance_date, time_in, status, confidence_score)
-                VALUES (?, ?, ?, ?, ?)
-            """, (student['id'], today, time_now, status, result['confidence']))
-            db.commit()
+        for match in result['matches']:
+            student = db.execute(
+                "SELECT * FROM students WHERE id = ?", (match['student_id'],)
+            ).fetchone()
 
-        db.close()
-        return jsonify({
-            'success':        True,
-            'already_marked': already_marked,
-            'confidence':     result['confidence'],
-            'time_in':        time_now,
-            'student': {
-                'id':             student['id'],
+            if not student:
+                continue
+
+            # Duplicate check per student per day
+            existing = db.execute("""
+                SELECT id FROM attendance
+                WHERE student_id = ? AND attendance_date = ?
+            """, (student['id'], today)).fetchone()
+
+            already_marked = bool(existing)
+
+            if not existing:
+                status = 'Late' if time_now > late_cutoff else 'Present'
+                db.execute("""
+                    INSERT INTO attendance
+                    (student_id, attendance_date, time_in, status, confidence_score)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (student['id'], today, time_now, status, match['confidence']))
+                db.commit()
+            else:
+                status = db.execute(
+                    "SELECT status FROM attendance WHERE student_id = ? AND attendance_date = ?",
+                    (student['id'], today)
+                ).fetchone()['status']
+
+            recognized_students.append({
                 'student_number': student['student_number'],
                 'full_name':      student['full_name'],
                 'course':         student['course'],
                 'year_level':     student['year_level'],
                 'section':        student['section'],
                 'image_path':     student['image_path'],
-            }
+                'confidence':     match['confidence'],
+                'time_in':        time_now,
+                'status':         status,
+                'already_marked': already_marked
+            })
+
+        db.close()
+        return jsonify({
+            'success':    True,
+            'faces_found': result['faces_found'],
+            'total_recognized': len(recognized_students),
+            'message':    result['message'],
+            'students':   recognized_students      # list — supports 1 or many
         })
 
     except Exception as e:

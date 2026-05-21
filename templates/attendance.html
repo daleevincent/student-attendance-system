@@ -328,35 +328,60 @@
   function handleResult(data) {
     document.getElementById('resultPlaceholder').style.display = 'none';
     document.getElementById('resultContent').classList.add('show');
-    const card = document.getElementById('resultCard');
-    const banner= document.getElementById('resultBanner');
+    const card   = document.getElementById('resultCard');
+    const banner = document.getElementById('resultBanner');
 
-    if (data.success && data.student) {
-      const s = data.student;
+    if (data.success && data.students && data.students.length > 0) {
       card.className   = 'result-card success';
       banner.className = 'result-banner success';
-      document.getElementById('resultBannerIcon').textContent  = data.already_marked ? '🔁' : '✅';
-      document.getElementById('resultBannerTitle').textContent = data.already_marked ? 'Already Marked' : 'Attendance Marked!';
-      document.getElementById('resultBannerSub').textContent   = data.already_marked ? 'Duplicate within same day' : 'Successfully logged';
-      document.getElementById('resultName').textContent    = s.full_name;
-      document.getElementById('resultId').textContent      = s.student_number;
+
+      const count    = data.students.length;
+      const multiMsg = count > 1 ? `${count} students recognized` : 'Attendance Marked!';
+
+      document.getElementById('resultBannerIcon').textContent  = count > 1 ? '👥' : '✅';
+      document.getElementById('resultBannerTitle').textContent = multiMsg;
+      document.getElementById('resultBannerSub').textContent   =
+        count > 1 ? `${count} faces detected and matched` : 'Successfully logged';
+
+      // Show primary (first) student in the result card
+      const s    = data.students[0];
+      const conf = Math.round((s.confidence || 0) * 100);
+
+      document.getElementById('resultName').textContent    = count > 1
+        ? data.students.map(x => x.full_name).join(', ')
+        : s.full_name;
+      document.getElementById('resultId').textContent      = count > 1
+        ? `${count} students`
+        : s.student_number;
       document.getElementById('resultCourse').textContent  = s.course;
       document.getElementById('resultYear').textContent    = `Year ${s.year_level} — ${s.section}`;
-      document.getElementById('resultTime').textContent    = data.time_in || new Date().toLocaleTimeString();
-      document.getElementById('resultStatus').innerHTML    = data.already_marked
-        ? '<span class="badge badge-warning">Duplicate</span>'
-        : '<span class="badge badge-success"><span class="badge-dot"></span>Present</span>';
-      const conf = Math.round((data.confidence||0)*100);
-      document.getElementById('resultConfidence').textContent = conf+'%';
-      document.getElementById('confidenceBar').style.width    = conf+'%';
+      document.getElementById('resultTime').textContent    = s.time_in || new Date().toLocaleTimeString();
+      document.getElementById('resultConfidence').textContent = conf + '%';
+      document.getElementById('confidenceBar').style.width    = conf + '%';
+
+      // Status badge — show worst status if multiple
+      const hasLate    = data.students.some(x => x.status === 'Late');
+      const hasDup     = data.students.some(x => x.already_marked);
+      document.getElementById('resultStatus').innerHTML = hasDup
+        ? '<span class="badge badge-warning">Some Already Marked</span>'
+        : hasLate
+          ? '<span class="badge badge-warning"><span class="badge-dot"></span>Late</span>'
+          : '<span class="badge badge-success"><span class="badge-dot"></span>Present</span>';
+
       document.getElementById('faceBox').classList.add('active');
-      setTimeout(()=>document.getElementById('faceBox').classList.remove('active'),3000);
-      if (!data.already_marked) {
-        addToLog(s.full_name, data.time_in||new Date().toLocaleTimeString(), true);
-        showToast(`${s.full_name} — Attendance marked!`,'success');
-      } else {
-        showToast(`${s.full_name} — Already marked today`,'warning');
-      }
+      setTimeout(() => document.getElementById('faceBox').classList.remove('active'), 3000);
+
+      // Log and toast each student individually
+      data.students.forEach(st => {
+        if (!st.already_marked) {
+          addToLog(st.full_name, st.time_in || new Date().toLocaleTimeString(), true);
+          showToast(`${st.full_name} — Attendance marked!`, 'success');
+        } else {
+          addToLog(st.full_name, st.time_in || new Date().toLocaleTimeString(), true);
+          showToast(`${st.full_name} — Already marked today`, 'warning');
+        }
+      });
+
     } else {
       card.className   = 'result-card failure';
       banner.className = 'result-banner failure';
@@ -369,11 +394,10 @@
       document.getElementById('resultYear').textContent    = '—';
       document.getElementById('resultTime').textContent    = new Date().toLocaleTimeString();
       document.getElementById('resultStatus').innerHTML    = '<span class="badge badge-danger">Unknown</span>';
-      const conf = Math.round((data.confidence||0)*100);
-      document.getElementById('resultConfidence').textContent = conf+'%';
-      document.getElementById('confidenceBar').style.width    = conf+'%';
+      document.getElementById('resultConfidence').textContent = '0%';
+      document.getElementById('confidenceBar').style.width    = '0%';
       addToLog('Unknown Face', new Date().toLocaleTimeString(), false);
-      showToast('Face not recognized','error');
+      showToast('Face not recognized', 'error');
     }
   }
 

@@ -247,8 +247,7 @@ def predict_face(image_bytes: bytes, db_conn) -> dict:
     if not face_boxes:
         return {
             'recognized':  False,
-            'student_id':  None,
-            'confidence':  0.0,
+            'matches':     [],
             'faces_found': 0,
             'message':     'No face detected in frame'
         }
@@ -265,18 +264,15 @@ def predict_face(image_bytes: bytes, db_conn) -> dict:
     if not students:
         return {
             'recognized':  False,
-            'student_id':  None,
-            'confidence':  0.0,
+            'matches':     [],
             'faces_found': len(face_boxes),
             'message':     'No enrolled faces in database — upload photos for students first.'
         }
 
-    best_id    = None
-    best_score = -1.0
-    h, w       = frame.shape[:2]
+    h, w    = frame.shape[:2]
+    matches = []   # one entry per detected face that was recognized
 
     for (x1, y1, x2, y2) in face_boxes:
-        # Generous padding
         pad  = 30
         x1p  = max(0, x1 - pad)
         y1p  = max(0, y1 - pad)
@@ -291,28 +287,41 @@ def predict_face(image_bytes: bytes, db_conn) -> dict:
         if live_emb is None:
             return _mock_predict(db_conn)
 
+        # Find the best matching student for THIS face
+        best_id    = None
+        best_score = -1.0
+
         for row in students:
             stored_emb = np.frombuffer(row['face_embedding'], dtype=np.float32)
-            score = _cosine_similarity(live_emb, stored_emb)
+            score      = _cosine_similarity(live_emb, stored_emb)
             if score > best_score:
                 best_score = score
                 best_id    = row['id']
 
-    if best_score >= COSINE_THRESHOLD:
+        if best_score >= COSINE_THRESHOLD:
+            # Only add if this student isn't already matched in this same frame
+            # (prevents one student being matched to two detected boxes)
+            already_matched = any(m['student_id'] == best_id for m in matches)
+            if not already_matched:
+                matches.append({
+                    'student_id': best_id,
+                    'confidence': best_score,
+                    'box':        (x1, y1, x2, y2)
+                })
+
+    if matches:
         return {
             'recognized':  True,
-            'student_id':  best_id,
-            'confidence':  best_score,
+            'matches':     matches,
             'faces_found': len(face_boxes),
-            'message':     f'Recognized via {_detector_type.upper()} + FaceNet'
+            'message':     f'{len(matches)} face(s) recognized via {_detector_type.upper()} + FaceNet'
         }
     else:
         return {
             'recognized':  False,
-            'student_id':  None,
-            'confidence':  best_score,
+            'matches':     [],
             'faces_found': len(face_boxes),
-            'message':     f'Face detected but no match (score: {best_score:.2f})'
+            'message':     f'{len(face_boxes)} face(s) detected but no match above threshold ({COSINE_THRESHOLD})'
         }
 
 
@@ -395,16 +404,16 @@ def _mock_predict(db_conn) -> dict:
     import random
     students = db_conn.execute("SELECT id FROM students").fetchall()
     if not students:
-        return {'recognized': False, 'student_id': None, 'confidence': 0.0,
-                'faces_found': 0, 'message': 'No students in database'}
+        return {'recognized': False, 'matches': [], 'faces_found': 0,
+                'message': 'No students in database'}
     if random.random() < 0.70:
         s = random.choice(students)
         c = round(random.uniform(0.78, 0.99), 4)
-        return {'recognized': True, 'student_id': s['id'], 'confidence': c,
+        return {'recognized': True,
+                'matches': [{'student_id': s['id'], 'confidence': c, 'box': (0,0,100,100)}],
                 'faces_found': 1, 'message': 'Recognized (mock — FaceNet missing)'}
-    c = round(random.uniform(0.10, 0.45), 4)
-    return {'recognized': False, 'student_id': None, 'confidence': c,
-            'faces_found': 0, 'message': 'Not recognized (mock — FaceNet missing)'}
+    return {'recognized': False, 'matches': [], 'faces_found': 0,
+            'message': 'Not recognized (mock — FaceNet missing)'}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
