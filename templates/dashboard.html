@@ -63,6 +63,12 @@
   .qa-label { font-size: 0.8rem; font-weight: 700; }
   .qa-desc  { font-size: 0.7rem;  color: var(--text-muted); }
 
+  .attendance-rate-bar {
+    height: 7px; background: var(--bg-surface-3); border-radius: 999px; overflow: hidden;
+  }
+  .attendance-rate-progress {
+    height: 100%; width: var(--attendance-rate, 0%); background: linear-gradient(90deg, var(--nu-navy-mid), var(--nu-gold)); border-radius: 999px; transition: width 1s ease;
+  }
   @media (max-width: 900px) { .recent-grid { grid-template-columns: 1fr; } }
 </style>
 {% endblock %}
@@ -214,8 +220,8 @@
           <span style="font-size:0.78rem;color:var(--text-secondary);">Attendance Rate</span>
           <span style="font-size:0.85rem;font-weight:800;color:var(--nu-gold);">{{ pct }}%</span>
         </div>
-        <div style="height:7px;background:var(--bg-surface-3);border-radius:999px;overflow:hidden;">
-          <div style="height:100%;width:{{ pct }}%;background:linear-gradient(90deg,var(--nu-navy-mid),var(--nu-gold));border-radius:999px;transition:width 1s ease;"></div>
+        <div class="attendance-rate-bar">
+          <div class="attendance-rate-progress" style="--attendance-rate: {{ pct }}%;"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
           <div style="padding:12px;background:var(--success-soft);border-radius:var(--radius-md);text-align:center;">

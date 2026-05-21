@@ -11,6 +11,15 @@
   }
   .filter-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 150px; }
   .filter-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .confidence-bar {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .confidence-bar-fill {
+    height: 4px; width: 44px; background: var(--bg-surface-3); border-radius: 999px; overflow: hidden;
+  }
+  .confidence-bar-progress {
+    height: 100%; width: var(--confidence, 0%); background: var(--nu-gold); border-radius: 999px;
+  }
 </style>
 {% endblock %}
 
@@ -106,9 +115,9 @@
             </td>
             <td>
               {% if r.confidence_score %}
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <div style="height:4px;width:44px;background:var(--bg-surface-3);border-radius:999px;overflow:hidden;">
-                    <div style="height:100%;width:{{ (r.confidence_score*100)|int }}%;background:var(--nu-gold);border-radius:999px;"></div>
+                <div class="confidence-bar">
+                  <div class="confidence-bar-fill">
+                    <div class="confidence-bar-progress" style="--confidence: {{ (r.confidence_score*100)|int }}%;"></div>
                   </div>
                   <span class="text-sm text-muted">{{ (r.confidence_score*100)|int }}%</span>
                 </div>
