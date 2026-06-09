@@ -59,7 +59,10 @@
     transition: all 0.15s; cursor: pointer;
   }
   .quick-action-btn:hover { border-color: var(--nu-gold); background: var(--nu-gold-soft); transform: translateY(-1px); }
-  .qa-icon { width: 32px; height: 32px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+  .qa-icon {
+    width: 32px; height: 32px; border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+  }
   .qa-label { font-size: 0.8rem; font-weight: 700; }
   .qa-desc  { font-size: 0.7rem;  color: var(--text-muted); }
 
@@ -67,7 +70,8 @@
     height: 7px; background: var(--bg-surface-3); border-radius: 999px; overflow: hidden;
   }
   .attendance-rate-progress {
-    height: 100%; width: var(--attendance-rate, 0%); background: linear-gradient(90deg, var(--nu-navy-mid), var(--nu-gold)); border-radius: 999px; transition: width 1s ease;
+    height: 100%; background: linear-gradient(90deg, var(--nu-navy-mid), var(--nu-gold));
+    border-radius: 999px; transition: width 1s ease; width: 0%;
   }
   @media (max-width: 900px) { .recent-grid { grid-template-columns: 1fr; } }
 </style>
@@ -194,19 +198,27 @@
       <div class="card-header"><h3 class="card-title">Quick Actions</h3></div>
       <div class="quick-actions">
         <a href="{{ url_for('face_attendance') }}" class="quick-action-btn">
-          <div class="qa-icon" style="background:var(--success-soft);color:var(--success);">📷</div>
+          <div class="qa-icon" style="background:var(--success-soft);color:var(--success);">
+            <i class="fa-solid fa-camera"></i>
+          </div>
           <div><div class="qa-label">Face Scan</div><div class="qa-desc">Mark attendance</div></div>
         </a>
         <a href="{{ url_for('students') }}" class="quick-action-btn">
-          <div class="qa-icon" style="background:var(--nu-gold-soft);color:var(--nu-gold);">👤</div>
+          <div class="qa-icon" style="background:var(--nu-gold-soft);color:var(--nu-gold);">
+            <i class="fa-solid fa-user-plus"></i>
+          </div>
           <div><div class="qa-label">Add Student</div><div class="qa-desc">Register new</div></div>
         </a>
         <a href="{{ url_for('attendance_records') }}" class="quick-action-btn">
-          <div class="qa-icon" style="background:rgba(0,51,153,0.12);color:var(--nu-navy-mid);">📊</div>
+          <div class="qa-icon" style="background:rgba(0,51,153,0.12);color:var(--nu-navy-mid);">
+            <i class="fa-solid fa-table-list"></i>
+          </div>
           <div><div class="qa-label">View Logs</div><div class="qa-desc">All records</div></div>
         </a>
         <a href="{{ url_for('attendance_records') }}?export=csv" class="quick-action-btn">
-          <div class="qa-icon" style="background:var(--warning-soft);color:var(--warning);">📥</div>
+          <div class="qa-icon" style="background:var(--warning-soft);color:var(--warning);">
+            <i class="fa-solid fa-file-export"></i>
+          </div>
           <div><div class="qa-label">Export CSV</div><div class="qa-desc">Download data</div></div>
         </a>
       </div>
@@ -221,7 +233,7 @@
           <span style="font-size:0.85rem;font-weight:800;color:var(--nu-gold);">{{ pct }}%</span>
         </div>
         <div class="attendance-rate-bar">
-          <div class="attendance-rate-progress" style="--attendance-rate: {{ pct }}%;"></div>
+          <div class="attendance-rate-progress" id="rateBar" data-pct="{{ pct }}"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
           <div style="padding:12px;background:var(--success-soft);border-radius:var(--radius-md);text-align:center;">
@@ -241,6 +253,7 @@
 
 {% block extra_js %}
 <script>
+  // Live clock
   function updateClock() {
     const now = new Date();
     document.getElementById('liveClock').textContent = now.toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -248,5 +261,9 @@
   }
   updateClock();
   setInterval(updateClock, 1000);
+
+  // Attendance rate bar — set via JS to avoid Jinja-in-CSS linter error
+  const bar = document.getElementById('rateBar');
+  if (bar) bar.style.width = bar.getAttribute('data-pct') + '%';
 </script>
 {% endblock %}

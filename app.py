@@ -368,9 +368,14 @@ def api_recognize():
 def attendance_records():
     # Collect filter params
     search   = request.args.get('search', '').strip()
-    f_date   = request.args.get('date',   '').strip()
     page     = max(1, int(request.args.get('page', 1)))
     per_page = 20
+
+    # Default date is TODAY — only override if admin explicitly picks another date
+    today_str = date.today().isoformat()
+    f_date    = request.args.get('date', '').strip()
+    if not f_date:
+        f_date = today_str   # always show today by default
 
     # Export CSV?
     if request.args.get('export') == 'csv':
@@ -383,9 +388,10 @@ def attendance_records():
     if search:
         where_clauses.append("(s.full_name LIKE ? OR s.student_number LIKE ?)")
         params += [f'%{search}%', f'%{search}%']
-    if f_date:
-        where_clauses.append("a.attendance_date = ?")
-        params.append(f_date)
+
+    # Always filter by date (today by default, or chosen date)
+    where_clauses.append("a.attendance_date = ?")
+    params.append(f_date)
 
     where_sql = ("WHERE " + " AND ".join(where_clauses)) if where_clauses else ""
 
@@ -418,7 +424,8 @@ def attendance_records():
         page=page,
         per_page=per_page,
         total_count=total_count,
-        total_pages=total_pages
+        total_pages=total_pages,
+        today=today_str
     )
 
 

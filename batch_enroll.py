@@ -41,18 +41,20 @@ from services.face_recognition_service import (
 # Maps each dataset folder name to the exact full_name in the database
 FOLDER_TO_NAME = {
     'Aldrea':    'Aldrea Sarmiento',
-    'Angel':     'Psalm Andal',          # folder "Angel" = Psalm Andal (nickname)
+    'Psalm':     'Psalm Andal',   
+    'Angel':     'Angel Binaluyo',
     'Charlene':  'Charlene De Chavez',
     'Chester':   'Chester Andaya',
     'Dale':      'Dale Vincent Montaño',
     'Diana':     'Diana Baduya',
-    'James':     'Omar Ghazal',          # update if James is a different student
+    'James':     'James Byron',         
     'Jm':        'JM Reyes',
     'Kenneth':   'Kenneth Averion',
     'Kyla':      'Kyla Jamito',
     'Niccollo':  'Mark Niccollo L. Dayrit',
     'Patrick':   'Patrick Eva',
     'Philip':    'Philip Llave',
+    'Omar':      'Omar Ghazal',
 }
 
 # Supported image extensions
